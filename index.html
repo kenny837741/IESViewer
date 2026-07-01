@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IES 3D Viewer</title>
+    <link rel="stylesheet" href="styles.css?v=20260630-illuminance-fullscreen">
+    <script defer src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script defer src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script defer src="app.js?v=20260630-illuminance-fullscreen"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="viewer">
+        <div id="scene" aria-label="IES 3D luminous intensity surface"></div>
+
+        <div class="toolbar" aria-label="3D controls">
+          <button class="icon-button" id="resetViewBtn" type="button" title="重設視角">
+            <i data-lucide="rotate-ccw"></i>
+          </button>
+          <button class="icon-button is-active" id="rotateBtn" type="button" title="自動旋轉">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+          <button class="icon-button" id="displayModeBtn" type="button" title="切換顯示模式">
+            <i data-lucide="network"></i>
+          </button>
+          <button class="icon-button" id="captureBtn" type="button" title="下載畫面">
+            <i data-lucide="download"></i>
+          </button>
+        </div>
+
+        <div class="scene-badge">
+          <span id="sceneTitle">IES 3D Viewer</span>
+          <strong id="sceneMax">-- cd</strong>
+        </div>
+
+        <div class="legend" aria-hidden="true">
+          <span>低</span>
+          <div class="legend-bar"></div>
+          <span>高</span>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <header class="brand">
+          <div>
+            <h1>IES 3D Viewer</h1>
+            <p>IESNA LM-63-2002</p>
+          </div>
+          <span class="version-pill">*.ies</span>
+        </header>
+
+        <section class="panel file-panel">
+          <div class="file-actions">
+            <label class="file-button" title="讀取 IES">
+              <i data-lucide="upload"></i>
+              <span>讀取 IES</span>
+              <input id="fileInput" type="file" accept=".ies,.IES,text/plain">
+            </label>
+            <button class="secondary-button" id="sampleBtn" type="button" title="載入範例">
+              <i data-lucide="file-input"></i>
+              <span>範例</span>
+            </button>
+          </div>
+          <div class="drop-zone" id="dropZone">
+            <span id="fileName">尚未載入檔案</span>
+          </div>
+        </section>
+
+        <section class="panel metrics-panel">
+          <h2>光度資料</h2>
+          <dl class="metric-grid">
+            <div>
+              <dt>最大 candela</dt>
+              <dd id="maxCandela">--</dd>
+            </div>
+            <div>
+              <dt>最大角度</dt>
+              <dd id="maxAngle">--</dd>
+            </div>
+            <div>
+              <dt>垂直 x 水平</dt>
+              <dd id="angleCounts">--</dd>
+            </div>
+            <div>
+              <dt>輸入功率</dt>
+              <dd id="inputWatts">--</dd>
+            </div>
+            <div>
+              <dt>燈具光通量</dt>
+              <dd id="lampLumens">--</dd>
+            </div>
+            <div>
+              <dt>估算總流明</dt>
+              <dd id="estimatedLumens">--</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel control-panel">
+          <h2>顯示</h2>
+          <label class="control-row">
+            <span>半徑</span>
+            <input id="radiusSlider" type="range" min="1.5" max="7" step="0.1" value="4.2">
+            <output id="radiusValue">4.2</output>
+          </label>
+          <label class="control-row">
+            <span>曲線</span>
+            <select id="scaleMode">
+              <option value="linear" selected>linear</option>
+            </select>
+          </label>
+          <label class="control-row">
+            <span>模式</span>
+            <select id="displayMode">
+              <option value="wire">wire frame</option>
+              <option value="render" selected>rendering</option>
+              <option value="both">wire frame+rendering</option>
+            </select>
+          </label>
+          <label class="control-row">
+            <span>透明度</span>
+            <input id="opacitySlider" type="range" min="0.35" max="1" step="0.05" value="0.92">
+            <output id="opacityValue">0.92</output>
+          </label>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="panel-heading">
+            <h2>極座標剖面</h2>
+            <span>linear C0-C180 / C90-C270</span>
+          </div>
+          <div class="profile-tools">
+            <label class="profile-angle-row" for="customPlaneInput">
+              <span>C plane</span>
+              <input id="customPlaneInput" type="number" min="0" max="359.9" step="0.1" value="45">
+              <output id="customPlaneLabel">C45-C225</output>
+            </label>
+            <div class="profile-legend" aria-label="profile curve legend">
+              <span><i class="swatch swatch-c0"></i>C0-C180</span>
+              <span><i class="swatch swatch-c90"></i>C90-C270</span>
+              <span><i class="swatch swatch-custom"></i>Custom</span>
+            </div>
+          </div>
+          <canvas id="profileCanvas" width="320" height="210"></canvas>
+        </section>
+
+        <section class="panel illuminance-panel">
+          <div class="panel-heading">
+            <h2>地面照度</h2>
+            <span>lux contour</span>
+          </div>
+          <div class="illuminance-controls">
+            <label class="illuminance-row" for="groundHeightInput">
+              <span>H (m)</span>
+              <input id="groundHeightInput" type="number" min="0.05" step="0.05" value="1.5">
+            </label>
+            <label class="illuminance-row" for="groundRangeInput">
+              <span>半徑 (m)</span>
+              <input id="groundRangeInput" type="number" min="0.1" step="0.1" value="3">
+            </label>
+            <label class="illuminance-row" for="illuminanceMode">
+              <span>級距</span>
+              <select id="illuminanceMode">
+                <option value="percent" selected>percent</option>
+                <option value="lux">lux</option>
+              </select>
+            </label>
+          </div>
+          <div class="illuminance-canvas-wrap">
+            <canvas id="illuminanceCanvas" width="340" height="340"></canvas>
+            <button class="icon-button canvas-action-button" id="illuminanceFullscreenBtn" type="button" title="放大顯示" aria-label="放大顯示">
+              <i data-lucide="maximize-2"></i>
+            </button>
+          </div>
+          <dl class="illuminance-stats">
+            <div>
+              <dt>中心照度</dt>
+              <dd id="centerLux">--</dd>
+            </div>
+            <div>
+              <dt>最大照度</dt>
+              <dd id="maxLux">--</dd>
+            </div>
+            <div>
+              <dt>最大位置</dt>
+              <dd id="maxLuxPoint">--</dd>
+            </div>
+            <div>
+              <dt>平均照度</dt>
+              <dd id="avgLux">--</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel keyword-panel">
+          <h2>檔案資訊</h2>
+          <dl id="keywordList" class="keyword-list"></dl>
+        </section>
+
+        <section class="panel warning-panel" id="warningPanel" hidden>
+          <h2>訊息</h2>
+          <ul id="warningList"></ul>
+        </section>
+      </aside>
+    </main>
+    <div class="illuminance-fullscreen" id="illuminanceFullscreen" hidden>
+      <div class="illuminance-fullscreen-bar">
+        <div class="illuminance-fullscreen-title">
+          <strong>地面照度</strong>
+          <span>lux contour</span>
+        </div>
+        <div class="illuminance-fullscreen-actions">
+          <button class="secondary-button value-toggle-button" id="fullscreenValueToggleBtn" type="button" aria-pressed="false">顯示值</button>
+          <button class="icon-button" id="illuminanceCloseBtn" type="button" title="關閉" aria-label="關閉">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </div>
+      <div class="illuminance-fullscreen-stage">
+        <canvas id="illuminanceFullscreenCanvas" width="1100" height="760"></canvas>
+      </div>
+    </div>
+  </body>
+</html>
