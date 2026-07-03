@@ -4,11 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>IES 3D Viewer</title>
-    <link rel="stylesheet" href="styles.css?v=20260630-illuminance-fullscreen">
+    <link rel="stylesheet" href="styles.css?v=V7">
     <script defer src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script defer src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script defer src="app.js?v=20260630-illuminance-fullscreen"></script>
+    <script defer src="ies-core.js?v=V7"></script>
+    <script defer src="app.js?v=V7"></script>
   </head>
   <body>
     <main class="app-shell">
@@ -16,6 +17,10 @@
         <div id="scene" aria-label="IES 3D luminous intensity surface"></div>
 
         <div class="toolbar" aria-label="3D controls">
+          <a class="nav-button" href="calculation.html" title="進入照度計算頁">
+            <i data-lucide="calculator"></i>
+            <span>Calculation</span>
+          </a>
           <button class="icon-button" id="resetViewBtn" type="button" title="重設視角">
             <i data-lucide="rotate-ccw"></i>
           </button>
@@ -124,6 +129,20 @@
             <input id="opacitySlider" type="range" min="0.35" max="1" step="0.05" value="0.92">
             <output id="opacityValue">0.92</output>
           </label>
+          <label class="control-row unit-row">
+            <span>光通量</span>
+            <select id="fluxUnit">
+              <option value="lm" selected>lm</option>
+              <option value="PPF">PPF</option>
+            </select>
+          </label>
+          <label class="control-row unit-row">
+            <span>照度</span>
+            <select id="illuminanceUnit">
+              <option value="lux" selected>lux</option>
+              <option value="PPFD">PPFD</option>
+            </select>
+          </label>
         </section>
 
         <section class="panel preview-panel">
@@ -149,7 +168,7 @@
         <section class="panel illuminance-panel">
           <div class="panel-heading">
             <h2>地面照度</h2>
-            <span>lux contour</span>
+            <span id="illuminancePanelUnitLabel">lux contour</span>
           </div>
           <div class="illuminance-controls">
             <label class="illuminance-row" for="groundHeightInput">
@@ -164,7 +183,7 @@
               <span>級距</span>
               <select id="illuminanceMode">
                 <option value="percent" selected>percent</option>
-                <option value="lux">lux</option>
+                <option value="lux">fixed</option>
               </select>
             </label>
           </div>
@@ -209,7 +228,7 @@
       <div class="illuminance-fullscreen-bar">
         <div class="illuminance-fullscreen-title">
           <strong>地面照度</strong>
-          <span>lux contour</span>
+          <span id="illuminanceFullscreenUnitLabel">lux contour</span>
         </div>
         <div class="illuminance-fullscreen-actions">
           <button class="secondary-button value-toggle-button" id="fullscreenValueToggleBtn" type="button" aria-pressed="false">顯示值</button>

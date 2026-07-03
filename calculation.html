@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>照度計算 - IES 3D Viewer</title>
+    <link rel="stylesheet" href="styles.css?v=V7">
+    <script defer src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script defer src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script defer src="ies-core.js?v=V7"></script>
+    <script defer src="calc.js?v=V7"></script>
+  </head>
+  <body>
+    <main class="calc-shell">
+      <aside class="sidebar calc-sidebar">
+        <header class="brand">
+          <div>
+            <h1>照度計算</h1>
+            <p>Ground illuminance planning</p>
+          </div>
+          <a class="nav-button" href="index.html" title="返回 3D Viewer">
+            <i data-lucide="arrow-left"></i>
+            <span>3D Viewer</span>
+          </a>
+        </header>
+
+        <section class="panel calc-panel">
+          <h2>地面</h2>
+          <div class="calc-inline">
+            <label class="calc-field" for="areaPreset">
+              <span>面積預設</span>
+              <select id="areaPreset">
+                <option value="custom" selected>自訂</option>
+              </select>
+            </label>
+            <button class="icon-button swap-button" id="swapBtn" type="button" title="長寬互換">
+              <i data-lucide="arrow-left-right"></i>
+            </button>
+          </div>
+          <div class="calc-grid-2">
+            <label class="calc-field" for="groundLengthInput">
+              <span>長 X (m)</span>
+              <input id="groundLengthInput" type="number" min="0.1" step="0.1" value="50">
+            </label>
+            <label class="calc-field" for="groundWidthInput">
+              <span>寬 Y (m)</span>
+              <input id="groundWidthInput" type="number" min="0.1" step="0.1" value="50">
+            </label>
+            <label class="calc-field" for="gridXInput">
+              <span>計算點數 X</span>
+              <input id="gridXInput" type="number" min="2" max="301" step="1" value="51">
+            </label>
+            <label class="calc-field" for="gridYInput">
+              <span>計算點數 Y</span>
+              <input id="gridYInput" type="number" min="2" max="301" step="1" value="51">
+            </label>
+          </div>
+        </section>
+
+        <section class="panel calc-panel file-panel">
+          <h2>燈具</h2>
+          <div class="file-actions">
+            <label class="file-button" title="讀取 IES">
+              <i data-lucide="upload"></i>
+              <span>讀取 IES</span>
+              <input id="fileInput" type="file" accept=".ies,.IES,text/plain">
+            </label>
+            <button class="secondary-button" id="sampleBtn" type="button" title="載入範例">
+              <i data-lucide="file-input"></i>
+              <span>範例</span>
+            </button>
+          </div>
+          <div class="drop-zone" id="dropZone">
+            <span id="fileName">尚未載入檔案</span>
+          </div>
+          <p class="hint" id="lumInfo">--</p>
+          <div class="calc-grid-2">
+            <label class="calc-field" for="fluxInput">
+              <span>光通量 (<span id="fluxUnitLabel">lm</span>)</span>
+              <input id="fluxInput" type="number" min="0" step="1" value="">
+            </label>
+            <label class="calc-field" for="fluxUnit">
+              <span>光通量單位</span>
+              <select id="fluxUnit">
+                <option value="lm" selected>lm</option>
+                <option value="PPF">PPF</option>
+              </select>
+            </label>
+            <label class="calc-field" for="mountHeightInput">
+              <span>安裝高度 H (m)</span>
+              <input id="mountHeightInput" type="number" min="0.05" step="0.05" value="4">
+            </label>
+            <label class="calc-field" for="illuminanceUnit">
+              <span>照度單位</span>
+              <select id="illuminanceUnit">
+                <option value="lux" selected>lux</option>
+                <option value="PPFD">PPFD</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel calc-panel">
+          <h2>均佈配置 (Field Arrangement)</h2>
+          <div class="calc-grid-2">
+            <label class="calc-field" for="fieldRowsInput">
+              <span>行數 (Y)</span>
+              <input id="fieldRowsInput" type="number" min="1" max="100" step="1" value="6">
+            </label>
+            <label class="calc-field" for="fieldColsInput">
+              <span>每行燈數 (X)</span>
+              <input id="fieldColsInput" type="number" min="1" max="100" step="1" value="7">
+            </label>
+            <label class="calc-field" for="fieldRotInput">
+              <span>Z 旋轉 (°)</span>
+              <input id="fieldRotInput" type="number" step="1" value="0">
+            </label>
+          </div>
+          <button class="secondary-button" id="generateFieldBtn" type="button">
+            <i data-lucide="layout-grid"></i>
+            <span>產生均佈配置</span>
+          </button>
+          <p class="hint">間距規則：Luminaire Center to Luminaire Center（邊到第一盞燈 = 燈間距的一半）。</p>
+        </section>
+
+        <section class="panel calc-panel">
+          <div class="panel-heading">
+            <h2>燈具清單</h2>
+            <span id="lumCount">0 盞</span>
+          </div>
+          <div class="lum-table-wrap">
+            <table class="lum-table">
+              <thead>
+                <tr><th>#</th><th>X (m)</th><th>Y (m)</th><th>旋轉°</th><th></th></tr>
+              </thead>
+              <tbody id="lumTableBody"></tbody>
+            </table>
+          </div>
+          <div class="calc-actions">
+            <button class="secondary-button" id="addLumBtn" type="button">
+              <i data-lucide="plus"></i>
+              <span>新增燈具</span>
+            </button>
+            <button class="secondary-button" id="clearLumBtn" type="button">
+              <i data-lucide="trash-2"></i>
+              <span>清空</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel calc-panel">
+          <div class="panel-heading">
+            <h2>計算結果</h2>
+            <span id="calcUnitLabel">lux contour</span>
+          </div>
+          <div class="check-row">
+            <label><input type="checkbox" id="showLumIndexChk" checked> 燈具編號</label>
+            <label><input type="checkbox" id="showContourLabelsChk" checked> 等照度標籤</label>
+          </div>
+          <div class="check-row">
+            <label><input type="checkbox" id="show3dLumChk" checked> 3D 顯示燈具</label>
+            <label><input type="checkbox" id="show3dPhotChk"> 3D 顯示光型</label>
+          </div>
+          <label class="control-row" for="lumSizeSlider">
+            <span>燈具大小</span>
+            <input id="lumSizeSlider" type="range" min="0.1" max="4" step="0.05" value="0.7">
+            <output id="lumSizeValue">0.7</output>
+          </label>
+          <label class="control-row" for="photRadiusSlider">
+            <span>光型半徑</span>
+            <input id="photRadiusSlider" type="range" min="0.3" max="10" step="0.1" value="3">
+            <output id="photRadiusValue">3</output>
+          </label>
+          <label class="control-row" for="photOpacitySlider">
+            <span>光型透明度</span>
+            <input id="photOpacitySlider" type="range" min="0.15" max="1" step="0.05" value="0.55">
+            <output id="photOpacityValue">0.55</output>
+          </label>
+          <label class="calc-field" for="levelMode">
+            <span>級距</span>
+            <select id="levelMode">
+              <option value="percent" selected>percent</option>
+              <option value="lux">fixed</option>
+            </select>
+          </label>
+          <dl class="illuminance-stats">
+            <div>
+              <dt>最大照度</dt>
+              <dd id="statMax">--</dd>
+            </div>
+            <div>
+              <dt>最大位置</dt>
+              <dd id="statMaxPos">--</dd>
+            </div>
+            <div>
+              <dt>最小照度</dt>
+              <dd id="statMin">--</dd>
+            </div>
+            <div>
+              <dt>最小位置</dt>
+              <dd id="statMinPos">--</dd>
+            </div>
+            <div>
+              <dt>平均照度</dt>
+              <dd id="statAvg">--</dd>
+            </div>
+            <div>
+              <dt>均勻度 (min/avg)</dt>
+              <dd id="statUniformity">--</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel warning-panel" id="warningPanel" hidden>
+          <h2>訊息</h2>
+          <ul id="warningList"></ul>
+        </section>
+
+        <section class="panel calc-panel">
+          <h2>保存</h2>
+          <p class="hint">所有輸入與燈具配置會自動保存在瀏覽器 (localStorage)，重新開啟頁面自動還原。</p>
+          <button class="secondary-button" id="resetBtn" type="button">
+            <i data-lucide="rotate-ccw"></i>
+            <span>重設全部</span>
+          </button>
+        </section>
+      </aside>
+
+      <section class="calc-stage">
+        <canvas id="planCanvas"></canvas>
+        <div id="scene3d"></div>
+        <div class="stage-toolbar">
+          <button class="secondary-button view-toggle is-active" id="view2dBtn" type="button">2D 平面</button>
+          <button class="secondary-button view-toggle" id="view3dBtn" type="button">3D 檢視</button>
+          <button class="icon-button stage-3d-only" id="resetView3dBtn" type="button" title="重設視角" hidden>
+            <i data-lucide="rotate-ccw"></i>
+          </button>
+          <button class="icon-button stage-3d-only" id="rotate3dBtn" type="button" title="自動旋轉" hidden>
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
